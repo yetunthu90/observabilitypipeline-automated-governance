@@ -13,7 +13,8 @@ resource "helm_release" "prometheus" {
   name       = "prometheus-operator"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
-  namespace  = "default"
+#  namespace  = "default"
+  namespace  = "observability"
 
   set {
     name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
@@ -28,7 +29,8 @@ resource "kubernetes_manifest" "frontend_servicemonitor" {
     kind       = "ServiceMonitor"
     metadata = {
       name = "frontend-servicemonitor"
-      namespace = "default"
+#      namespace = "default"
+      namespace = "observability"
       labels = {
         release = "prometheus-operator"
       }
@@ -54,7 +56,8 @@ resource "kubernetes_manifest" "frontend_servicemonitor" {
 resource "kubernetes_config_map" "otel_collector_config" {
   metadata {
     name      = "otel-collector-config"
-    namespace = "default"
+#    namespace = "default"
+    namespace = "observability"
   }
 
   data = {
@@ -92,7 +95,8 @@ resource "kubernetes_config_map" "otel_collector_config" {
 resource "kubernetes_deployment" "otel_collector" {
   metadata {
     name      = "otel-collector"
-    namespace = "default"
+#    namespace = "default"
+    namespace = "observability"
   }
 
   spec {
@@ -141,7 +145,8 @@ resource "kubernetes_deployment" "otel_collector" {
 resource "kubernetes_service" "otel_collector" {
   metadata {
     name      = "otel-collector"
-    namespace = "default"
+#    namespace = "default"
+    namespace = "observability"
   }
 
   spec {
