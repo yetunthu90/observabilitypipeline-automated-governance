@@ -51,6 +51,9 @@ spec:
           value: "50051"
         - name: DISABLE_PROFILER
           value: "1"
+        # Highlighted Modification: Add LOG_FIELDS environment variable
+        - name: LOG_FIELDS
+          value: "email,credit_card"  # Simulate sensitive data in logs
         readinessProbe:
           grpc:
             port: 50051
