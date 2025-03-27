@@ -1,15 +1,15 @@
-resource "kubernetes_manifest" "logsensitivity_v2_constraint_template" {
+resource "kubernetes_manifest" "logsensitivity_constraint_template" {
   manifest = {
     "apiVersion" = "templates.gatekeeper.sh/v1beta1"
     "kind"       = "ConstraintTemplate"
     "metadata" = {
-      "name" = "logsensitivity-v2"  # Renamed to avoid conflict
+      "name" = "logsensitivity"
     }
     "spec" = {
       "crd" = {
         "spec" = {
           "names" = {
-            "kind" = "LogSensitivityV2"  # Changed CRD kind to avoid duplication
+            "kind" = "LogSensitivity"
           }
         }
       }
@@ -19,6 +19,7 @@ resource "kubernetes_manifest" "logsensitivity_v2_constraint_template" {
           "rego" = <<-EOT
             package logsensitivity
 
+            # Prevent Pods from exposing sensitive log fields
             violation[{"msg": msg}] {
               input.review.object.kind == "Pod"
               input.review.object.spec.containers[_].env[_].name == "LOG_FIELDS"
@@ -26,6 +27,7 @@ resource "kubernetes_manifest" "logsensitivity_v2_constraint_template" {
               msg := "Pod contains sensitive log data (email, credit card, etc.)"
             }
 
+            # Prevent Grafana dashboards from being exposed publicly
             violation[{"msg": msg}] {
               input.review.object.kind == "ConfigMap"
               input.review.object.metadata.labels["app.kubernetes.io/name"] == "grafana"
@@ -33,6 +35,7 @@ resource "kubernetes_manifest" "logsensitivity_v2_constraint_template" {
               msg := "Grafana dashboard should not be publicly accessible"
             }
 
+            # Restrict Prometheus metrics from containing sensitive data
             violation[{"msg": msg}] {
               input.review.object.kind == "ConfigMap"
               input.review.object.metadata.labels["app.kubernetes.io/name"] == "prometheus"
