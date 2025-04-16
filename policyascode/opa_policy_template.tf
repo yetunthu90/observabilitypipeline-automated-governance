@@ -1,4 +1,4 @@
-resource "kubernetes_manifest" "logsensitivity_constraint_template" {
+resource "kubernetes_manifest" "log_sensitivity_template" {
   manifest = {
     "apiVersion" = "templates.gatekeeper.sh/v1beta1"
     "kind"       = "ConstraintTemplate"
@@ -16,15 +16,21 @@ resource "kubernetes_manifest" "logsensitivity_constraint_template" {
       "targets" = [
         {
           "target" = "admission.k8s.gatekeeper.sh"
-          "rego" = <<-EOT
+          "rego"   = <<-EOT
             package logsensitivity
 
-            # Prevent Pods from exposing sensitive log fields
+            # Sensitive keys (log fields)
+            sensitive_keys := {"email", "user_id", "credit_card", "ssn"}
+
+            # Main violation check for sensitive data in Pod logs
             violation[{"msg": msg}] {
               input.review.object.kind == "Pod"
-              input.review.object.spec.containers[_].env[_].name == "LOG_FIELDS"
-              contains_sensitive_data(input.review.object.spec.containers[_].env[_].value)
-              msg := "Pod contains sensitive log data (email, credit card, etc.)"
+              container := input.review.object.spec.containers[_]
+              env := container.env[_]
+              env.name == "LOG_FIELDS"
+              sensitive_key := sensitive_keys[_]
+              contains(env.value, sensitive_key)
+              msg := sprintf("Pod contains sensitive data in container '%s' (LOG_FIELDS: %s)", [container.name, env.value])
             }
 
             # Prevent Grafana dashboards from being exposed publicly
@@ -33,26 +39,6 @@ resource "kubernetes_manifest" "logsensitivity_constraint_template" {
               input.review.object.metadata.labels["app.kubernetes.io/name"] == "grafana"
               input.review.object.data["public"] == "true"
               msg := "Grafana dashboard should not be publicly accessible"
-            }
-
-            # Restrict Prometheus metrics from containing sensitive data
-            violation[{"msg": msg}] {
-              input.review.object.kind == "ConfigMap"
-              input.review.object.metadata.labels["app.kubernetes.io/name"] == "prometheus"
-              contains_sensitive_data(input.review.object.data["metrics"])
-              msg := "Prometheus metrics contain sensitive data"
-            }
-
-            contains_sensitive_data(log_fields) {
-              log_fields[_] == "email"
-            }
-
-            contains_sensitive_data(log_fields) {
-              log_fields[_] == "credit_card"
-            }
-
-            contains_sensitive_data(log_fields) {
-              log_fields[_] == "ssn"
             }
           EOT
         }
