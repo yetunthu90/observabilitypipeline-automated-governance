@@ -1,15 +1,13 @@
-# Wait for OPA Gatekeeper to be installed
-resource "null_resource" "wait_for_gatekeeper" {
-  depends_on = [helm_release.gatekeeper]
-
+resource "null_resource" "wait_for_logsensitivity_crd" {
   provisioner "local-exec" {
-    command = "kubectl wait --for=condition=Established crd/constrainttemplates.templates.gatekeeper.sh --timeout=60s"
+ command = "powershell.exe -Command \"for ($i = 0; $i -lt 30; $i++) { if (kubectl get constrainttemplates logsensitivity) { break } Start-Sleep -Seconds 2 }\""
   }
+
+  depends_on = [kubernetes_manifest.log_sensitivity_template]
 }
 
-# Define Constraint for Data Sensitivity & Dashboard Access Control
 resource "kubernetes_manifest" "log_sensitivity_constraint" {
-  depends_on = [null_resource.wait_for_gatekeeper]  # Wait for OPA Gatekeeper to be installed
+  depends_on = [null_resource.wait_for_logsensitivity_crd]
 
   manifest = {
     apiVersion = "constraints.gatekeeper.sh/v1beta1"
@@ -18,16 +16,16 @@ resource "kubernetes_manifest" "log_sensitivity_constraint" {
       name = "enforce-log-sensitivity"
     }
     spec = {
-      enforcementAction = "warn"  # Set to "warn" mode
+      enforcementAction = "deny"
       match = {
         kinds = [
           {
             apiGroups = [""]
-            kinds     = ["Pod"]  # Apply to Pods (for sensitive log fields)
+            kinds     = ["Pod"]
           },
           {
-            apiGroups = ["apps"]
-            kinds     = ["ConfigMap"]  # Apply to ConfigMaps (for Grafana & Prometheus)
+            apiGroups = [""]
+            kinds     = ["ConfigMap"]
           }
         ]
       }
